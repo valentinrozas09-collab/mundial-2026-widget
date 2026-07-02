@@ -81,6 +81,11 @@
     .btn-action { background: var(--c-gold); color: var(--c-pitch); border: none; padding: 8px 16px; border-radius: 4px; font-family: var(--f-sans); font-weight: 700; font-size: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: background 0.2s ease; margin-top: 10px; }
     .btn-action:hover { background: #e5be49; }
     .no-matches-msg { font-style: italic; color: rgba(245, 242, 233, 0.5); font-size: 13px; text-align: center; padding: 16px 8px; }
+    .demo-banner { width: 100%; background: linear-gradient(90deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--c-gold); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+    .demo-banner.hidden { display: none !important; }
+    .banner-icon { font-size: 16px; flex-shrink: 0; }
+    .banner-close-btn { background: none; border: none; color: var(--c-gold); font-size: 18px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; padding: 0 4px; line-height: 1; }
+    .banner-close-btn:hover { opacity: 1; }
   </style>
 </head>
 <body>
@@ -98,6 +103,14 @@
         <div id="last-update">ÚLTIMA ACTUALIZACIÓN: --:--:--</div>
       </div>
     </header>
+
+    <div id="demo-notification-banner" class="demo-banner hidden">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="banner-icon">⚠️</span>
+        <span id="demo-banner-text">Cargando datos...</span>
+      </div>
+      <button class="banner-close-btn" onclick="document.getElementById('demo-notification-banner').classList.add('hidden')">&times;</button>
+    </div>
 
     <div class="filters-panel">
       <div class="filter-group">
@@ -214,10 +227,11 @@
     document.addEventListener('DOMContentLoaded', () => {
       filterTeamSelect.addEventListener('change', renderMatches);
       filterStatusSelect.addEventListener('change', renderMatches);
-      btnDemo.addEventListener('click', () => { activateDemoMode(); });
+      btnDemo.addEventListener('click', () => { activateDemoMode(true, "Modo Demostración activado manualmente."); });
 
       if (!ACTIVE_API_KEY || ACTIVE_API_KEY === 'TU_API_KEY_AQUI') {
-        showConfigWarning("API Key no configurada. Edita el archivo widget.html para ingresar tu token de football-data.org.");
+        console.warn("API Key no configurada. Activando Modo Demo por defecto.");
+        activateDemoMode(true, "Aviso: API Key no configurada. Se ha activado el Modo Demo automáticamente con partidos simulados de eliminatorias (al 2 de Julio de 2026).");
       } else {
         fetchMatches();
       }
@@ -229,10 +243,20 @@
       errorText.innerText = msg;
     }
 
-    function activateDemoMode() {
+    function activateDemoMode(showBanner = false, bannerMsg = "") {
       isDemoMode = true;
       errorContainer.classList.add('hidden');
       loaderMsg.classList.add('hidden');
+
+      if (showBanner) {
+        const banner = document.getElementById('demo-notification-banner');
+        const bannerText = document.getElementById('demo-banner-text');
+        if (banner && bannerText) {
+          bannerText.innerText = bannerMsg;
+          banner.classList.remove('hidden');
+        }
+      }
+
       allMatches = [
         { id: 201, stage: 'ROUND_OF_16', status: 'FINISHED', utcDate: '2026-06-30T13:00:00Z', homeTeam: { name: 'Argentina' }, awayTeam: { name: 'Denmark' }, score: { duration: 'REGULAR', fullTime: { home: 2, away: 1 } } },
         { id: 202, stage: 'ROUND_OF_16', status: 'FINISHED', utcDate: '2026-06-30T17:00:00Z', homeTeam: { name: 'Germany' }, awayTeam: { name: 'Uruguay' }, score: { duration: 'PENALTY_SHOOTOUT', fullTime: { home: 1, away: 1 }, penalties: { home: 4, away: 3 } } },
@@ -259,7 +283,8 @@
         const data = await response.json();
         allMatches = data.matches.filter(match => match.stage !== 'GROUP_STAGE');
         if (allMatches.length === 0) {
-          showConfigWarning("Aún no hay partidos de fase eliminatoria cargados. Usa el Modo Demo.");
+          console.warn("No hay partidos de fase eliminatoria reales cargados. Activando Modo Demo...");
+          activateDemoMode(true, "Aviso: Aún no hay partidos de fase eliminatoria reales cargados en la API de fútbol-data. Se activó el Modo Demo automáticamente.");
           return;
         }
         errorContainer.classList.add('hidden');
@@ -268,7 +293,8 @@
         renderMatches();
         updateRefreshCycle();
       } catch (err) {
-        showConfigWarning(`Falla de conexión: ${err.message}`);
+        console.error("Falla al conectar con la API real (posible CORS / Red):", err);
+        activateDemoMode(true, `Falla de conexión con la API de fútbol-data (${err.message}). Se activó el Modo Demo automáticamente.`);
       }
     }
 
